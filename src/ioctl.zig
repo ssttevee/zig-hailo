@@ -479,7 +479,7 @@ pub fn run(device: std.fs.File, comptime code: Code, data: *PayloadType(code)) !
     // std.os.windows.DeviceIoControl(device.handle);
     // const result = std.posix.errno(std.c.ioctl(device.handle, @bitCast(@intFromEnum(code)), @intFromPtr(data)));
 
-    const result = std.posix.errno(std.posix.system.ioctl(device.handle, @intFromEnum(code), @intFromPtr(data)));
+    const result = std.posix.errno(std.posix.system.ioctl(device.handle, @bitCast(@intFromEnum(code)), @intFromPtr(data)));
     if (result != .SUCCESS) {
         std.debug.print("errno? {d} {s}\n", .{ @intFromEnum(result), @tagName(result) });
         return std.posix.unexpectedErrno(result);
