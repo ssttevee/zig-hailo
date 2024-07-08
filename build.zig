@@ -7,7 +7,7 @@ pub fn build(b: *std.Build) void {
     const target = b.standardTargetOptions(.{});
     const optimize = b.standardOptimizeOption(.{});
 
-    _ = b.addModule("hailo", .{
+    const hailo = b.addModule("hailo", .{
         .root_source_file = b.path("src/root.zig"),
         .target = target,
         .optimize = optimize,
@@ -15,10 +15,12 @@ pub fn build(b: *std.Build) void {
 
     const status_exe = b.addExecutable(.{
         .name = "hailostatus",
-        .root_source_file = b.path("src/hailostatus.zig"),
+        .root_source_file = b.path("src/cmd/hailostatus.zig"),
         .target = target,
         .optimize = optimize,
     });
+
+    status_exe.root_module.addImport("hailo", hailo);
 
     b.installArtifact(status_exe);
 
@@ -29,7 +31,7 @@ pub fn build(b: *std.Build) void {
         run_status_cmd.addArgs(args);
     }
 
-    const run_step = b.step("status", "Run hailostatus");
+    const run_step = b.step("run-status", "Run hailostatus");
     run_step.dependOn(&run_status_cmd.step);
 
     const lib_unit_tests = b.addTest(.{

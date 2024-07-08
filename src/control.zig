@@ -7,6 +7,7 @@ const native_endian = builtin.cpu.arch.endian();
 const root = @import("root.zig");
 const firmware = @import("firmware.zig");
 const ioctl = @import("ioctl.zig");
+const util = @import("util.zig");
 
 const CpuId = ioctl.CpuId;
 
@@ -28,6 +29,68 @@ fn TrailingData(comptime T: type, comptime max_struct_size: usize) type {
     std.debug.assert(@sizeOf(U) == max_struct_size);
     return U;
 }
+
+pub const FirmwareVersion = extern struct {
+    major: u32,
+    minor: u32,
+    revision: packed struct(u32) {
+        revision: u27,
+        core: bool,
+        _: u1,
+        extended_context_switch_buffer: bool,
+        dev: bool,
+        second_stage: bool,
+    },
+
+    pub fn format(self: @This(), comptime fmt: []const u8, options: std.fmt.FormatOptions, writer: anytype) !void {
+        _ = fmt;
+        _ = options;
+
+        try std.fmt.format(writer, "{d}.{d}.{d} (", .{ self.major, self.minor, self.revision.revision });
+
+        if (self.revision.dev) {
+            try writer.writeAll("develop");
+        } else {
+            try writer.writeAll("release");
+        }
+
+        try writer.writeAll(", ");
+
+        if (self.revision.second_stage) {
+            try writer.writeAll("invalid");
+        } else if (self.revision.core) {
+            try writer.writeAll("core");
+        } else {
+            try writer.writeAll("app");
+        }
+
+        if (self.revision.extended_context_switch_buffer) {
+            try writer.writeAll(", extended context switch buffer");
+        }
+
+        try writer.writeByte(')');
+    }
+
+    pub fn toString(self: @This()) [128:0]u8 {
+        var buf = std.mem.zeroes([128:0]u8);
+        var stream = std.io.fixedBufferStream(&buf);
+        self.format("", .{}, stream.writer()) catch unreachable;
+        return buf;
+    }
+
+    pub fn jsonStringify(self: @This(), stream: anytype) !void {
+        try stream.beginObject();
+        try stream.objectField("version");
+        try stream.write(root.Version{ .major = self.major, .minor = self.minor, .revision = self.revision.revision });
+        try stream.objectField("mode");
+        try stream.write(if (self.revision.dev) "develop" else "release");
+        try stream.objectField("firmware_type");
+        try stream.write(if (self.revision.second_stage) "invalid" else if (self.revision.core) "core" else "app");
+        try stream.objectField("extended_context_switch_buffer");
+        try stream.write(self.revision.extended_context_switch_buffer);
+        try stream.endObject();
+    }
+};
 
 pub const operations = struct {
     pub const identify = struct {
@@ -54,10 +117,21 @@ pub const operations = struct {
                         else => "Unknown",
                     });
                 }
+
+                pub fn toString(self: Architecture) [8:0]u8 {
+                    var buf = std.mem.zeroes([8:0]u8);
+                    var stream = std.io.fixedBufferStream(&buf);
+                    self.format("", .{}, stream.writer()) catch unreachable;
+                    return buf;
+                }
+
+                pub fn jsonStringify(self: Architecture, stream: anytype) !void {
+                    try stream.write(util.cstr(&self.toString()));
+                }
             };
 
             protocol_version: u32,
-            fw_version: root.Version,
+            fw_version: FirmwareVersion,
             logger_version: u32,
             board_name: [32]u8,
             device_architecture: Architecture,
@@ -72,6 +146,27 @@ pub const operations = struct {
                 convertPtrEndian(.big, &res.logger_version);
                 convertPtrEndian(.big, &res.device_architecture);
                 return res;
+            }
+
+            pub fn jsonStringify(self: @This(), stream: anytype) !void {
+                try stream.beginObject();
+                try stream.objectField("protocol_version");
+                try stream.write(self.protocol_version);
+                try stream.objectField("firmware_version");
+                try stream.write(self.fw_version);
+                try stream.objectField("logger_version");
+                try stream.write(self.logger_version);
+                try stream.objectField("board_name");
+                try stream.write(util.cstr(&self.board_name));
+                try stream.objectField("device_architecture");
+                try stream.write(self.device_architecture);
+                try stream.objectField("serial_number");
+                try stream.write(util.cstr(&self.serial_number));
+                try stream.objectField("part_number");
+                try stream.write(util.cstr(&self.part_number));
+                try stream.objectField("product_name");
+                try stream.write(util.cstr(&self.product_name));
+                try stream.endObject();
             }
         };
     };
@@ -336,7 +431,7 @@ pub const operations = struct {
         pub const cpu_id = CpuId.core;
         pub const Request = struct {};
         pub const Response = struct {
-            fw_version: root.Version,
+            fw_version: FirmwareVersion,
         };
     };
 
@@ -384,6 +479,17 @@ pub const operations = struct {
 
                 return res;
             }
+
+            pub fn jsonStringify(self: @This(), stream: anytype) !void {
+                try stream.beginObject();
+                try stream.objectField("s0");
+                try stream.write(self.info.ts0_temperature);
+                try stream.objectField("s1");
+                try stream.write(self.info.ts1_temperature);
+                try stream.objectField("sample_count");
+                try stream.write(self.info.sample_count);
+                try stream.endObject();
+            }
         };
     };
 
@@ -428,6 +534,21 @@ pub const operations = struct {
                 mdio: bool,
 
                 _reserved1: u27,
+
+                pub fn jsonStringify(self: @This(), stream: anytype) !void {
+                    try stream.beginObject();
+                    try stream.objectField("ethernet");
+                    try stream.write(self.ethernet);
+                    try stream.objectField("mipi");
+                    try stream.write(self.mipi);
+                    try stream.objectField("pcie");
+                    try stream.write(self.pcie);
+                    try stream.objectField("current_monitoring");
+                    try stream.write(self.current_monitoring);
+                    try stream.objectField("mdio");
+                    try stream.write(self.mdio);
+                    try stream.endObject();
+                }
             };
 
             comptime {
@@ -463,6 +584,17 @@ pub const operations = struct {
                         else => "unknown",
                     });
                 }
+
+                pub fn toString(self: @This()) [10:0]u8 {
+                    var buf = std.mem.zeroes([10:0]u8);
+                    var stream = std.io.fixedBufferStream(&buf);
+                    self.format("", .{}, stream.writer()) catch unreachable;
+                    return buf;
+                }
+
+                pub fn jsonStringify(self: @This(), stream: anytype) !void {
+                    try stream.write(util.cstr(&self.toString()));
+                }
             };
 
             neural_network_core_clock_rate: u32,
@@ -480,6 +612,31 @@ pub const operations = struct {
             /// - https://github.com/hailo-ai/hailort/blob/e2190aeda847ab22057d162d08b516c39ac36ab8/hailort/libhailort/src/utils/soc_utils/partial_cluster_reader.hpp
             /// - https://github.com/hailo-ai/hailort/blob/e2190aeda847ab22057d162d08b516c39ac36ab8/hailort/libhailort/src/utils/soc_utils/partial_cluster_reader.cpp
             partial_clusters_layout_bitmap: PartialClustersLayoutBitmap,
+
+            pub fn jsonStringify(self: @This(), stream: anytype) !void {
+                var buf: [32]u8 = undefined;
+
+                try stream.beginObject();
+                try stream.objectField("neural_network_core_clock_rate");
+                try stream.write(self.neural_network_core_clock_rate);
+                try stream.objectField("supported_features");
+                try stream.write(self.supported_features);
+                try stream.objectField("boot_source");
+                try stream.write(self.boot_source);
+                try stream.objectField("lcs");
+                try stream.write(self.lcs);
+                try stream.objectField("soc_id");
+                try stream.write(std.fmt.bytesToHex(&self.soc_id, .upper));
+                try stream.objectField("eth_mac_address");
+                try stream.write(std.fmt.bufPrint(&buf, "{X:0>2}:{X:0>2}:{X:0>2}:{X:0>2}:{X:0>2}:{X:0>2}", .{ self.eth_mac_address[0], self.eth_mac_address[1], self.eth_mac_address[2], self.eth_mac_address[3], self.eth_mac_address[4], self.eth_mac_address[5] }) catch unreachable);
+                try stream.objectField("fuse_info");
+                try stream.write(std.fmt.bytesToHex(std.mem.asBytes(&self.fuse_info), .upper));
+                try stream.objectField("pd_info");
+                try stream.write(std.fmt.bytesToHex(&self.pd_info, .upper));
+                try stream.objectField("partial_clusters_layout_bitmap");
+                try stream.write(self.partial_clusters_layout_bitmap);
+                try stream.endObject();
+            }
         };
     };
 

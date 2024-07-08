@@ -111,7 +111,7 @@ pub const operations = struct {
                 board_type: BoardType,
                 allocation_mode: AllocationMode,
                 dma_type: DMAType,
-                dma_engines_count: u64,
+                dma_engines_count: usize,
                 is_fw_loaded: u8,
 
                 // #ifdef __QNX__
@@ -122,6 +122,23 @@ pub const operations = struct {
                     if (@bitSizeOf(@This()) / 8 != 23) {
                         @compileError(std.fmt.comptimePrint("expected @bitSizeOf({s})/8 to be size 23, but it is actually {d}", .{ @typeName(@This()), @bitSizeOf(@This()) / 8 }));
                     }
+                }
+
+                pub fn jsonStringify(self: @This(), stream: anytype) !void {
+                    try stream.beginObject();
+                    try stream.objectField("desc_max_page_size");
+                    try stream.write(self.desc_max_page_size);
+                    try stream.objectField("board_type");
+                    try stream.write(self.board_type);
+                    try stream.objectField("allocation_mode");
+                    try stream.write(self.allocation_mode);
+                    try stream.objectField("dma_type");
+                    try stream.write(self.dma_type);
+                    try stream.objectField("dma_engines_count");
+                    try stream.write(self.dma_engines_count);
+                    try stream.objectField("is_fw_loaded");
+                    try stream.write(self.is_fw_loaded != 0);
+                    try stream.endObject();
                 }
             };
         };

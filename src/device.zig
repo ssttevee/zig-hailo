@@ -3,6 +3,7 @@ const testing = std.testing;
 
 const ioctl = @import("ioctl.zig");
 const hailo = @import("root.zig");
+const util = @import("util.zig");
 
 file: std.fs.File,
 control_sequence: u32 = 0,
@@ -24,6 +25,17 @@ pub const PCIEInfo = struct {
         }
 
         try std.fmt.format(writer, "{x:0>2}:{x:0>2}.{x:0>2}", .{ self.bus, self.device, self.func });
+    }
+
+    pub fn toString(self: PCIEInfo) [13:0]u8 {
+        var buf = std.mem.zeroes([13:0]u8);
+        var stream = std.io.fixedBufferStream(&buf);
+        self.format("", .{}, stream.writer()) catch unreachable;
+        return buf;
+    }
+
+    pub fn jsonStringify(self: PCIEInfo, stream: anytype) !void {
+        try stream.write(util.cstr(&self.toString()));
     }
 };
 
@@ -103,9 +115,9 @@ pub fn queryDeviceProperties(self: Device) !ioctl.PayloadType(.query_device_prop
 pub fn control(
     self: *Device,
     comptime op: hailo.ControlOperation,
-    request: hailo.ControlOperationRequest(op),
+    request: hailo.ControlRequest(op),
     options: hailo.ControlOptions,
-) !hailo.ControlOperationResponse(op) {
+) !hailo.ControlResponse(op) {
     defer self.control_sequence += 1;
 
     return try hailo.control(self.file, op, request, self.control_sequence, options);
