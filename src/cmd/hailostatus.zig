@@ -18,49 +18,53 @@ const DefaultFormatter = struct {
         if (valid_device_info) |device_info| {
             try std.fmt.format(self.writer, "Device: /dev/{s} ({any})\n", .{ device_name, device_info.device_bdf });
 
-            try std.fmt.format(self.writer, "Driver Version: {}\n", .{device_info.driver_version});
+            if (device_info.ioctl_info) |ioctl_info| {
+                try std.fmt.format(self.writer, "Driver Version: {}\n", .{ioctl_info.driver_version});
 
-            try std.fmt.format(self.writer, "Max Page Size: {d}\n", .{device_info.device_properties.desc_max_page_size});
-            try std.fmt.format(self.writer, "Board Type: {s}\n", .{@tagName(device_info.device_properties.board_type)});
-            try std.fmt.format(self.writer, "Allocation Mode: {s}\n", .{@tagName(device_info.device_properties.allocation_mode)});
-            try std.fmt.format(self.writer, "DMA Type: {s}\n", .{@tagName(device_info.device_properties.dma_type)});
-            try std.fmt.format(self.writer, "DMA Engines Count: {d}\n", .{device_info.device_properties.dma_engines_count});
-            try std.fmt.format(self.writer, "Is Firmware Loaded: {}\n", .{device_info.device_properties.is_fw_loaded != 1});
+                try std.fmt.format(self.writer, "Max Page Size: {d}\n", .{ioctl_info.device_properties.desc_max_page_size});
+                try std.fmt.format(self.writer, "Board Type: {s}\n", .{@tagName(ioctl_info.device_properties.board_type)});
+                try std.fmt.format(self.writer, "Allocation Mode: {s}\n", .{@tagName(ioctl_info.device_properties.allocation_mode)});
+                try std.fmt.format(self.writer, "DMA Type: {s}\n", .{@tagName(ioctl_info.device_properties.dma_type)});
+                try std.fmt.format(self.writer, "DMA Engines Count: {d}\n", .{ioctl_info.device_properties.dma_engines_count});
+                try std.fmt.format(self.writer, "Is Firmware Loaded: {}\n", .{ioctl_info.device_properties.is_fw_loaded != 1});
 
-            try std.fmt.format(self.writer, "Control Protocol Version: {}\n", .{device_info.device_identity.protocol_version});
-            try std.fmt.format(self.writer, "Firmware Version: {}\n", .{device_info.device_identity.fw_version});
-            try std.fmt.format(self.writer, "Logger Version: {d}\n", .{device_info.device_identity.logger_version});
-            try std.fmt.format(self.writer, "Board Name: {s}\n", .{device_info.device_identity.board_name});
-            try std.fmt.format(self.writer, "Device Architecture: {}\n", .{device_info.device_identity.device_architecture});
-            try std.fmt.format(self.writer, "Serial Number: {s}\n", .{device_info.device_identity.serial_number});
-            try std.fmt.format(self.writer, "Part Number: {s}\n", .{device_info.device_identity.part_number});
-            try std.fmt.format(self.writer, "Product Name: {s}\n", .{device_info.device_identity.product_name});
+                try std.fmt.format(self.writer, "Control Protocol Version: {}\n", .{ioctl_info.device_identity.protocol_version});
+                try std.fmt.format(self.writer, "Firmware Version: {}\n", .{ioctl_info.device_identity.fw_version});
+                try std.fmt.format(self.writer, "Logger Version: {d}\n", .{ioctl_info.device_identity.logger_version});
+                try std.fmt.format(self.writer, "Board Name: {s}\n", .{ioctl_info.device_identity.board_name});
+                try std.fmt.format(self.writer, "Device Architecture: {}\n", .{ioctl_info.device_identity.device_architecture});
+                try std.fmt.format(self.writer, "Serial Number: {s}\n", .{ioctl_info.device_identity.serial_number});
+                try std.fmt.format(self.writer, "Part Number: {s}\n", .{ioctl_info.device_identity.part_number});
+                try std.fmt.format(self.writer, "Product Name: {s}\n", .{ioctl_info.device_identity.product_name});
 
-            try std.fmt.format(self.writer, "Core Clock Rate: {d}Hz\n", .{device_info.device_information.neural_network_core_clock_rate});
-            try std.fmt.format(self.writer, "Supported Features: ethernet           {}\n", .{device_info.device_information.supported_features.ethernet});
-            try std.fmt.format(self.writer, "                    mipi               {}\n", .{device_info.device_information.supported_features.mipi});
-            try std.fmt.format(self.writer, "                    pcie               {}\n", .{device_info.device_information.supported_features.pcie});
-            try std.fmt.format(self.writer, "                    current_monitoring {}\n", .{device_info.device_information.supported_features.current_monitoring});
-            try std.fmt.format(self.writer, "                    mdio               {}\n", .{device_info.device_information.supported_features.mdio});
-            try std.fmt.format(self.writer, "Boot Source: {s}\n", .{@tagName(device_info.device_information.boot_source)});
-            try std.fmt.format(self.writer, "LCS: {d}\n", .{device_info.device_information.lcs});
-            try std.fmt.format(self.writer, "SOC ID: {s}\n", .{std.fmt.bytesToHex(device_info.device_information.soc_id, .upper)});
-            try std.fmt.format(self.writer, "Ethernet MAC Address: {X:0>2}:{X:0>2}:{X:0>2}:{X:0>2}:{X:0>2}:{X:0>2}\n", .{ device_info.device_information.eth_mac_address[0], device_info.device_information.eth_mac_address[1], device_info.device_information.eth_mac_address[2], device_info.device_information.eth_mac_address[3], device_info.device_information.eth_mac_address[4], device_info.device_information.eth_mac_address[5] });
-            try std.fmt.format(self.writer, "ULT ID: {s}\n", .{std.fmt.bytesToHex(std.mem.asBytes(&device_info.device_information.fuse_info), .upper)});
-            try std.fmt.format(self.writer, "PM Values: {s}\n", .{std.fmt.bytesToHex(&device_info.device_information.pd_info, .upper)});
-            try std.fmt.format(self.writer, "Partial Clusters Layout Bitmap: {any}\n", .{device_info.device_information.partial_clusters_layout_bitmap});
+                try std.fmt.format(self.writer, "Core Clock Rate: {d}Hz\n", .{ioctl_info.device_information.neural_network_core_clock_rate});
+                try std.fmt.format(self.writer, "Supported Features: ethernet           {}\n", .{ioctl_info.device_information.supported_features.ethernet});
+                try std.fmt.format(self.writer, "                    mipi               {}\n", .{ioctl_info.device_information.supported_features.mipi});
+                try std.fmt.format(self.writer, "                    pcie               {}\n", .{ioctl_info.device_information.supported_features.pcie});
+                try std.fmt.format(self.writer, "                    current_monitoring {}\n", .{ioctl_info.device_information.supported_features.current_monitoring});
+                try std.fmt.format(self.writer, "                    mdio               {}\n", .{ioctl_info.device_information.supported_features.mdio});
+                try std.fmt.format(self.writer, "Boot Source: {s}\n", .{@tagName(ioctl_info.device_information.boot_source)});
+                try std.fmt.format(self.writer, "LCS: {d}\n", .{ioctl_info.device_information.lcs});
+                try std.fmt.format(self.writer, "SOC ID: {s}\n", .{std.fmt.bytesToHex(ioctl_info.device_information.soc_id, .upper)});
+                try std.fmt.format(self.writer, "Ethernet MAC Address: {X:0>2}:{X:0>2}:{X:0>2}:{X:0>2}:{X:0>2}:{X:0>2}\n", .{ ioctl_info.device_information.eth_mac_address[0], ioctl_info.device_information.eth_mac_address[1], ioctl_info.device_information.eth_mac_address[2], ioctl_info.device_information.eth_mac_address[3], ioctl_info.device_information.eth_mac_address[4], ioctl_info.device_information.eth_mac_address[5] });
+                try std.fmt.format(self.writer, "ULT ID: {s}\n", .{std.fmt.bytesToHex(std.mem.asBytes(&ioctl_info.device_information.fuse_info), .upper)});
+                try std.fmt.format(self.writer, "PM Values: {s}\n", .{std.fmt.bytesToHex(&ioctl_info.device_information.pd_info, .upper)});
+                try std.fmt.format(self.writer, "Partial Clusters Layout Bitmap: {any}\n", .{ioctl_info.device_information.partial_clusters_layout_bitmap});
 
-            if (device_info.power_measurements.len > 0) {
-                for (device_info.power_measurements, 0..) |power, i| {
-                    try std.fmt.format(self.writer, "{s} {s}: {d}{s}\n", .{ if (i == 0) "Measured Power:" else "               ", @tagName(power.dvm), power.value, power.type.unit() });
+                if (ioctl_info.power_measurements.len > 0) {
+                    for (ioctl_info.power_measurements, 0..) |power, i| {
+                        try std.fmt.format(self.writer, "{s} {s}: {d}{s}\n", .{ if (i == 0) "Measured Power:" else "               ", @tagName(power.dvm), power.value, power.type.unit() });
+                    }
+                } else {
+                    try std.fmt.format(self.writer, "Measured Power: unavailable\n", .{});
                 }
-            } else {
-                try std.fmt.format(self.writer, "Measured Power: unavailable\n", .{});
-            }
 
-            try std.fmt.format(self.writer, "Temperature: S0  {d}C\n", .{device_info.chip_temperature.info.ts0_temperature});
-            try std.fmt.format(self.writer, "             S1  {d}C\n", .{device_info.chip_temperature.info.ts1_temperature});
-            try std.fmt.format(self.writer, "             Avg {d}C\n", .{(device_info.chip_temperature.info.ts0_temperature + device_info.chip_temperature.info.ts1_temperature) / 2});
+                try std.fmt.format(self.writer, "Temperature: S0  {d}C\n", .{ioctl_info.chip_temperature.info.ts0_temperature});
+                try std.fmt.format(self.writer, "             S1  {d}C\n", .{ioctl_info.chip_temperature.info.ts1_temperature});
+                try std.fmt.format(self.writer, "             Avg {d}C\n", .{(ioctl_info.chip_temperature.info.ts0_temperature + ioctl_info.chip_temperature.info.ts1_temperature) / 2});
+            } else {
+                try std.fmt.format(self.writer, "WARNING: could not query device info - potentially unsupported driver version ({s})\n", .{device_info.kernel_module_version orelse "unknown"});
+            }
         } else {
             try std.fmt.format(self.writer, "Device: /dev/{s} (could not query device info)\n", .{device_name});
         }
@@ -91,18 +95,23 @@ const JSONFormatter = struct {
         if (valid_device_info) |device_info| {
             try self.stream.objectField("bdf");
             try self.stream.write(device_info.device_bdf);
-            try self.stream.objectField("driver_version");
-            try self.stream.write(device_info.driver_version);
-            try self.stream.objectField("device_properties");
-            try self.stream.write(device_info.device_properties);
-            try self.stream.objectField("device_identity");
-            try self.stream.write(device_info.device_identity);
-            try self.stream.objectField("device_information");
-            try self.stream.write(device_info.device_information);
-            try self.stream.objectField("power_measurements");
-            try self.stream.write(device_info.power_measurements);
-            try self.stream.objectField("chip_temperature");
-            try self.stream.write(device_info.chip_temperature);
+            if (device_info.ioctl_info) |ioctl_info| {
+                try self.stream.objectField("driver_version");
+                try self.stream.write(ioctl_info.driver_version);
+                try self.stream.objectField("device_properties");
+                try self.stream.write(ioctl_info.device_properties);
+                try self.stream.objectField("device_identity");
+                try self.stream.write(ioctl_info.device_identity);
+                try self.stream.objectField("device_information");
+                try self.stream.write(ioctl_info.device_information);
+                try self.stream.objectField("power_measurements");
+                try self.stream.write(ioctl_info.power_measurements);
+                try self.stream.objectField("chip_temperature");
+                try self.stream.write(ioctl_info.chip_temperature);
+            } else {
+                try self.stream.objectField("error");
+                try self.stream.print("\"could not query device info: potentially unsupported driver version ({s})\"", .{device_info.kernel_module_version orelse "unknown"});
+            }
         } else {
             try self.stream.objectField("error");
             try self.stream.write("could not query device info");
@@ -116,14 +125,19 @@ const JSONFormatter = struct {
     }
 };
 
-const ValidHailoDeviceInfo = struct {
-    device_bdf: hailo.device.PCIEInfo,
+const SupportedProtocolInfo = struct {
     driver_version: hailo.Version,
     device_properties: hailo.ioctl.PayloadType(.query_device_properties),
     device_identity: hailo.ControlResponse(.identify),
     device_information: hailo.ControlResponse(.get_device_information),
     power_measurements: []hailo.ControlResponse(.power_measurement),
     chip_temperature: hailo.ControlResponse(.get_chip_temperature),
+};
+
+const ValidHailoDeviceInfo = struct {
+    device_bdf: hailo.device.PCIEInfo,
+    ioctl_info: ?SupportedProtocolInfo,
+    kernel_module_version: ?[]const u8,
 };
 
 const FormatterUnion = union(enum) {
@@ -156,7 +170,7 @@ const FormatterUnion = union(enum) {
     }
 };
 
-fn printDeviceStatus(formatter: *FormatterUnion, device_name: []const u8) !void {
+fn printDeviceStatus(formatter: *FormatterUnion, kernel_module_version: ?[]const u8, device_name: []const u8) !void {
     try formatter.format(
         device_name,
         if (hailo.queryDeviceInfo(device_name, .{}) catch |err| blk: {
@@ -169,7 +183,17 @@ fn printDeviceStatus(formatter: *FormatterUnion, device_name: []const u8) !void 
             var device = try hailo.openDevice(device_name);
             defer device.close();
 
-            const driver_version = try device.queryDriverInfo();
+            const driver_version = device.queryDriverInfo() catch |err| {
+                if (err == error.Unexpected) {
+                    break :blk .{
+                        .device_bdf = device_info,
+                        .ioctl_info = null,
+                        .kernel_module_version = kernel_module_version,
+                    };
+                }
+
+                return err;
+            };
 
             const device_properties = try device.queryDeviceProperties();
 
@@ -202,15 +226,36 @@ fn printDeviceStatus(formatter: *FormatterUnion, device_name: []const u8) !void 
 
             break :blk .{
                 .device_bdf = device_info,
-                .driver_version = driver_version,
-                .device_properties = device_properties,
-                .device_identity = identity,
-                .device_information = device_information,
-                .power_measurements = power_buf[0..power_len],
-                .chip_temperature = chip_temperature,
+                .ioctl_info = .{
+                    .driver_version = driver_version,
+                    .device_properties = device_properties,
+                    .device_identity = identity,
+                    .device_information = device_information,
+                    .power_measurements = power_buf[0..power_len],
+                    .chip_temperature = chip_temperature,
+                },
+                .kernel_module_version = kernel_module_version,
             };
         } else null,
     );
+}
+
+fn readKernelModuleVersion(allocator: std.mem.Allocator) !?[]const u8 {
+    var child = std.process.Child.init(&[_][]const u8{ "modinfo", "hailo_pci" }, allocator);
+    child.stdout_behavior = .Pipe;
+    try child.spawn();
+    defer _ = child.kill() catch {};
+
+    const stdout = child.stdout.?.reader();
+    const version_key = "version:";
+    while (true) {
+        const line = try stdout.readUntilDelimiterOrEofAlloc(allocator, '\n', 4096) orelse return null;
+        defer allocator.free(line);
+        if (std.mem.startsWith(u8, line, version_key)) {
+            const trimmed = std.mem.trim(u8, line[version_key.len..], " ");
+            return try allocator.dupe(u8, trimmed);
+        }
+    }
 }
 
 pub fn main() !void {
@@ -265,13 +310,21 @@ pub fn main() !void {
         .json => .{ .json = try JSONFormatter.init(fileout.writer().any()) },
     };
 
+    const kernel_module_version = readKernelModuleVersion(allocator) catch |err| blk: {
+        std.fmt.format(std.io.getStdErr().writer(), "WARNING: failed to read kernel module version\n", .{}) catch {};
+        std.fmt.format(std.io.getStdErr().writer(), "{any}\n", .{err}) catch {};
+        break :blk null;
+    };
+
+    defer if (kernel_module_version) |s| allocator.free(s);
+
     if (requested_devices.items.len == 0) {
         var devices = try hailo.scan();
         defer devices.deinit();
 
         var i: usize = 0;
         while (try devices.next()) |device_name| {
-            try printDeviceStatus(&formatter, device_name);
+            try printDeviceStatus(&formatter, kernel_module_version, device_name);
             i += 1;
         }
 
@@ -280,7 +333,7 @@ pub fn main() !void {
         }
     } else {
         for (requested_devices.items) |device_name| {
-            try printDeviceStatus(&formatter, device_name);
+            try printDeviceStatus(&formatter, kernel_module_version, device_name);
         }
     }
 
