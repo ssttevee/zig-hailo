@@ -100,25 +100,26 @@ pub fn close(self: *Device) void {
     self.* = undefined;
 }
 
-pub fn queryDriverInfo(self: Device) !ioctl.PayloadType(.query_driver_info) {
-    var info: ioctl.PayloadType(.query_driver_info) = undefined;
-    try ioctl.run(self.file, .query_driver_info, &info);
+pub fn queryDriverInfo(self: Device, comptime protocol_version: ioctl.ProtocolVersion) !ioctl.ops.QueryDriverInfo.Payload {
+    var info: ioctl.PayloadType(protocol_version, .query_driver_info) = undefined;
+    try ioctl.run(protocol_version, self.file, .query_driver_info, &info);
     return info;
 }
 
-pub fn queryDeviceProperties(self: Device) !ioctl.PayloadType(.query_device_properties) {
-    var props: ioctl.PayloadType(.query_device_properties) = undefined;
-    try ioctl.run(self.file, .query_device_properties, &props);
+pub fn queryDeviceProperties(self: Device, comptime protocol_version: ioctl.ProtocolVersion) !ioctl.ops.QueryDeviceProperties.Payload {
+    var props: ioctl.PayloadType(protocol_version, .query_device_properties) = undefined;
+    try ioctl.run(protocol_version, self.file, .query_device_properties, &props);
     return props;
 }
 
 pub fn control(
     self: *Device,
+    comptime protocol_version: ioctl.ProtocolVersion,
     comptime op: hailo.ControlOperation,
     request: hailo.ControlRequest(op),
     options: hailo.ControlOptions,
 ) !hailo.ControlResponse(op) {
     defer self.control_sequence += 1;
 
-    return try hailo.control(self.file, op, request, self.control_sequence, options);
+    return try hailo.control(protocol_version, self.file, op, request, self.control_sequence, options);
 }

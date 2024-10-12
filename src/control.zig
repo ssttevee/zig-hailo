@@ -887,6 +887,7 @@ pub const Options = struct {
 };
 
 pub fn control(
+    comptime ioctl_protocol_version: ioctl.ProtocolVersion,
     device: std.fs.File,
     comptime op: Operation,
     request: OperationRequest(op),
@@ -896,7 +897,7 @@ pub fn control(
     const Request = OperationRequest(op);
     const Response = OperationResponse(op);
 
-    var request_buf: [ioctl.max_control_length]u8 = undefined;
+    var request_buf: [ioctl.ops.max_control_length]u8 = undefined;
     const request_header = std.mem.bytesAsValue(RequestHeader, request_buf[0..].ptr);
     request_header.* = .{
         .common = .{
@@ -944,8 +945,8 @@ pub fn control(
 
     std.log.debug("sending control request bytes: {any}", .{request_buf[0..request_offset]});
 
-    var response_buf: [ioctl.max_control_length]u8 = undefined;
-    const response_bytes = try send(device, request_buf[0..request_offset], &response_buf, 50000, @field(operations, @tagName(op)).cpu_id);
+    var response_buf: [ioctl.ops.max_control_length]u8 = undefined;
+    const response_bytes = try send(ioctl_protocol_version, device, request_buf[0..request_offset], &response_buf, 50000, @field(operations, @tagName(op)).cpu_id);
 
     std.log.debug("received control response bytes: {any}", .{response_bytes});
 
@@ -981,13 +982,13 @@ pub fn control(
     return response;
 }
 
-fn send(device: std.fs.File, request_bytes: []const u8, response_buf: []u8, timeout_ms: u32, cpu_id: CpuId) ![]const u8 {
-    std.debug.assert(request_bytes.len <= ioctl.max_control_length);
+fn send(comptime ioctl_protocol_version: ioctl.ProtocolVersion, device: std.fs.File, request_bytes: []const u8, response_buf: []u8, timeout_ms: u32, cpu_id: CpuId) ![]const u8 {
+    std.debug.assert(request_bytes.len <= ioctl.ops.max_control_length);
 
     // NOTE: libhailort has a check here to ensure that "critical" ops only work on the same major and minor version
     //       https://github.com/hailo-ai/hailort/blob/e2190aeda847ab22057d162d08b516c39ac36ab8/hailort/libhailort/src/device_common/device.cpp#L480
 
-    var data: ioctl.operations.general.fw_control.Payload = .{
+    var data: ioctl.ops.FirmwareControl.Payload = .{
         .expected_md5 = undefined,
         .buffer_len = @intCast(request_bytes.len),
         .buffer = undefined,
@@ -998,7 +999,7 @@ fn send(device: std.fs.File, request_bytes: []const u8, response_buf: []u8, time
     std.crypto.hash.Md5.hash(request_bytes, &data.expected_md5, .{});
     @memcpy(data.buffer[0..request_bytes.len], request_bytes);
 
-    try ioctl.run(device, .fw_control, &data);
+    try ioctl.run(ioctl_protocol_version, device, .fw_control, &data);
 
     if (response_buf.len < data.buffer_len) {
         return error.NoMoreSpace;

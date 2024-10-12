@@ -12,10 +12,10 @@ pub const ControlOperation = @import("control.zig").Operation;
 pub const ControlRequest = @import("control.zig").OperationRequest;
 pub const ControlResponse = @import("control.zig").OperationResponse;
 
-pub const device = @import("device.zig");
+pub const Device = @import("device.zig");
 
-pub const queryDeviceInfo = device.queryInfo;
-pub const openDevice = device.open;
+pub const queryDeviceInfo = Device.queryInfo;
+pub const openDevice = Device.open;
 
 pub const Version = extern struct {
     major: u32,

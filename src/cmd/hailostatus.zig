@@ -127,7 +127,7 @@ const JSONFormatter = struct {
 
 const SupportedProtocolInfo = struct {
     driver_version: hailo.Version,
-    device_properties: hailo.ioctl.PayloadType(.query_device_properties),
+    device_properties: hailo.ioctl.ops.QueryDeviceProperties.Payload,
     device_identity: hailo.ControlResponse(.identify),
     device_information: hailo.ControlResponse(.get_device_information),
     power_measurements: []hailo.ControlResponse(.power_measurement),
@@ -135,7 +135,7 @@ const SupportedProtocolInfo = struct {
 };
 
 const ValidHailoDeviceInfo = struct {
-    device_bdf: hailo.device.PCIEInfo,
+    device_bdf: hailo.Device.PCIEInfo,
     ioctl_info: ?SupportedProtocolInfo,
     kernel_module_version: ?[]const u8,
 };
@@ -170,6 +170,94 @@ const FormatterUnion = union(enum) {
     }
 };
 
+fn readIoctlInfo(comptime protocol_version: hailo.ioctl.ProtocolVersion, device: *hailo.Device) !?SupportedProtocolInfo {
+    const driver_version = device.queryDriverInfo(protocol_version) catch |err| {
+        if (err == error.Unexpected) {
+            return null;
+        }
+
+        return err;
+    };
+
+    const device_properties = try device.queryDeviceProperties(protocol_version);
+
+    const identity = try device.control(protocol_version, .identify, .{}, .{});
+
+    const device_information = try device.control(protocol_version, .get_device_information, .{}, .{});
+
+    // try to read all power measurements
+    const DVM = std.meta.FieldType(hailo.ControlResponse(.power_measurement), .dvm);
+    var power_len: usize = 0;
+    var power_buf: [@typeInfo(DVM).Enum.fields.len]hailo.ControlResponse(.power_measurement) = undefined;
+    inline for (@typeInfo(DVM).Enum.fields) |field| {
+        if (@field(DVM, field.name) == .auto) {
+            continue;
+        }
+
+        if (device.control(protocol_version, .power_measurement, .{ .dvm = @field(DVM, field.name) }, .{ .log_response_error = false }) catch |err| blk2: {
+            if (err == error.FirmwareResponseError) {
+                break :blk2 null;
+            }
+
+            return err;
+        }) |power| {
+            power_buf[power_len] = power;
+            power_len += 1;
+        }
+    }
+
+    const chip_temperature = try device.control(protocol_version, .get_chip_temperature, .{}, .{});
+
+    return .{
+        .driver_version = driver_version,
+        .device_properties = device_properties,
+        .device_identity = identity,
+        .device_information = device_information,
+        .power_measurements = power_buf[0..power_len],
+        .chip_temperature = chip_temperature,
+    };
+}
+
+fn tryReadIoctlInfoAllVersions(kernel_module_version: ?[]const u8, device: *hailo.Device) !?SupportedProtocolInfo {
+    if (kernel_module_version) |version| {
+        inline for (@typeInfo(hailo.ioctl.ProtocolVersion).Enum.fields) |field| {
+            if (std.mem.startsWith(
+                u8,
+                version,
+                hailo.ioctl.Protocol(@field(hailo.ioctl.ProtocolVersion, field.name)).operations.version,
+            )) {
+                std.log.debug("trying matching ioctl protocol {s}", .{@tagName(@field(hailo.ioctl.ProtocolVersion, field.name))});
+                if (try readIoctlInfo(@field(hailo.ioctl.ProtocolVersion, field.name), device)) |info| {
+                    return info;
+                }
+            }
+        }
+    }
+
+    inline for (@typeInfo(hailo.ioctl.ProtocolVersion).Enum.fields) |field| {
+        const should_try = blk: {
+            if (kernel_module_version) |version| {
+                break :blk !std.mem.startsWith(
+                    u8,
+                    version,
+                    hailo.ioctl.Protocol(@field(hailo.ioctl.ProtocolVersion, field.name)).operations.version,
+                );
+            }
+
+            break :blk true;
+        };
+
+        if (should_try) {
+            std.log.debug("trying other ioctl protocol {s}", .{@tagName(@field(hailo.ioctl.ProtocolVersion, field.name))});
+            if (try readIoctlInfo(@field(hailo.ioctl.ProtocolVersion, field.name), device)) |info| {
+                return info;
+            }
+        }
+    }
+
+    return null;
+}
+
 fn printDeviceStatus(formatter: *FormatterUnion, kernel_module_version: ?[]const u8, device_name: []const u8) !void {
     try formatter.format(
         device_name,
@@ -183,57 +271,9 @@ fn printDeviceStatus(formatter: *FormatterUnion, kernel_module_version: ?[]const
             var device = try hailo.openDevice(device_name);
             defer device.close();
 
-            const driver_version = device.queryDriverInfo() catch |err| {
-                if (err == error.Unexpected) {
-                    break :blk .{
-                        .device_bdf = device_info,
-                        .ioctl_info = null,
-                        .kernel_module_version = kernel_module_version,
-                    };
-                }
-
-                return err;
-            };
-
-            const device_properties = try device.queryDeviceProperties();
-
-            const identity = try device.control(.identify, .{}, .{});
-
-            const device_information = try device.control(.get_device_information, .{}, .{});
-
-            // try to read all power measurements
-            const DVM = std.meta.FieldType(hailo.ControlResponse(.power_measurement), .dvm);
-            var power_len: usize = 0;
-            var power_buf: [@typeInfo(DVM).Enum.fields.len]hailo.ControlResponse(.power_measurement) = undefined;
-            inline for (@typeInfo(DVM).Enum.fields) |field| {
-                if (@field(DVM, field.name) == .auto) {
-                    continue;
-                }
-
-                if (device.control(.power_measurement, .{ .dvm = @field(DVM, field.name) }, .{ .log_response_error = false }) catch |err| blk2: {
-                    if (err == error.FirmwareResponseError) {
-                        break :blk2 null;
-                    }
-
-                    return err;
-                }) |power| {
-                    power_buf[power_len] = power;
-                    power_len += 1;
-                }
-            }
-
-            const chip_temperature = try device.control(.get_chip_temperature, .{}, .{});
-
             break :blk .{
                 .device_bdf = device_info,
-                .ioctl_info = .{
-                    .driver_version = driver_version,
-                    .device_properties = device_properties,
-                    .device_identity = identity,
-                    .device_information = device_information,
-                    .power_measurements = power_buf[0..power_len],
-                    .chip_temperature = chip_temperature,
-                },
+                .ioctl_info = try tryReadIoctlInfoAllVersions(kernel_module_version, &device),
                 .kernel_module_version = kernel_module_version,
             };
         } else null,

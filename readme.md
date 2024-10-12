@@ -8,6 +8,8 @@ Only PCIE devices on linux are currently supported.
 
 This is a simple program that prints the status of your installed hailo devices. It is driver version independent unlike the official hailortcli tool.
 
+Tested on hailort driver versions: [`4.17.1`](https://github.com/hailo-ai/hailort/tree/e2190aeda847ab22057d162d08b516c39ac36ab8) [`4.18.0`](https://github.com/hailo-ai/hailort/tree/01e4c7f5a7463cc61ef1b2d22c31dd80a3a07d95)
+
 ### Usage
 
 You can run the program with the zig build system:
